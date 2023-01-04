@@ -1,0 +1,65 @@
+= rust macro bug
+v0.1, 2023-01-03
+Michael Stone
+:homepage: https://github.com/mstone/rust-macro-bug
+:sectlinks:
+:icons: font
+
+== Introduction
+
+This repo is a minimal reproducer for a bug that I'm trying to track down.
+
+== Steps to reproduce
+
+[source,bash]
+----
+nix develop
+cargo test # fails to compile
+----
+
+The bug is visible at expansion-time by running:
+
+[source,bash]
+----
+cargo expand --ugly --test 01-bug
+----
+
+which produces (see callout <<1>> ):
+
+[source,rust]
+----
+...
+#![feature(prelude_import)]
+#[prelude_import]
+use std::prelude::rust_2021::*;
+#[macro_use]
+extern crate std;
+// Check that the simplest use of the #[bug] attribute proc-macro compiles.
+use rust_macro_bug_impl::bug;
+
+fn add(a: u64, b: u64) -> u64 { { { a } (/*ERROR*/) } } // <1>
+
+#[allow(dead_code)]
+pub fn main() {
+    match (&add(1, 2), &3) {
+        (left_val, right_val) => {
+            if !(*left_val == *right_val) {
+                    let kind = ::core::panicking::AssertKind::Eq;
+                    ::core::panicking::assert_failed(kind, &*left_val,
+                        &*right_val, ::core::option::Option::None);
+                }
+        }
+    };
+}
+#[rustc_main]
+pub fn main() -> () {
+    extern crate test;
+    test::test_main_static(&[])
+}
+----
+
+<1> What is printing `(/\*ERROR*/)` here? -- This should be `{ b }` -- why isn't it?
+
+
+== Expected Behavior
+
