@@ -63,7 +63,19 @@ pub fn main() -> () {
 
 == Expected Behavior
 
-`cargo test` should succeed, and `cargo expand --ugly --test 01-bug 2>/dev/null | grep 'fn add'` should produce
+[source,bash]
+----
+cargo test
+----
+
+should succeed, and 
+
+[source,bash]
+----
+cargo expand --ugly --test 01-bug 2>/dev/null | grep 'fn add'
+----
+
+should produce as output:
 
 ----
 fn add(a: u64, b: u64) -> u64 { { { a } { b } } }
