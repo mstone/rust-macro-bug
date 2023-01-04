@@ -7,7 +7,7 @@ Michael Stone
 
 == Introduction
 
-This repo is a minimal reproducer for a bug that I'm trying to track down.
+This repo is a minimal reproducer for a proc-macro bug that I struggled to track down.
 
 The proc-macro that exhibits the bug is
 
@@ -95,3 +95,8 @@ should produce as output:
 fn add(a: u64, b: u64) -> u64 { { { a } { b } } }
 ----
 
+== Conclusion
+
+It turns out that there's a couple of things going on here, all driven by a bug in the initial proc-macro itself, which is that expressions need to be parenthesized as well as braced; otherwise, the result is invalid rust syntax, as is demonstrated by link:https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&code=fn%20add(a%3A%20u64%2C%20b%3A%20u64)%20-%3E%20u64%20%7B%20%7B%20%7B%20a%20%7D%20%2B%20%7B%20b%20%7D%20%7D%20%7D[this playground].
+
+From there, it turns out that the further surprising `(/\*ERROR*/)` sub-term in the expanded output is the result of rustc's `-Z unpretty=expanded` attempt to indicate the above error, as implemented in link:https://github.com/rust-lang/rust/blob/ddad1e1f15f77074738bb3d7fb7688a9177b6450/compiler/rustc_ast_pretty/src/pprust/state/expr.rs#L557[rustc_ast_pretty/.../expr.rs].
