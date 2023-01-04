@@ -9,6 +9,45 @@ Michael Stone
 
 This repo is a minimal reproducer for a bug that I'm trying to track down.
 
+The proc-macro that exhibits the bug is
+
+[source,rust]
+----
+#![feature(proc_macro_span)]
+use quote::{ToTokens};
+use syn::{parse_macro_input, Item, Expr, visit_mut::VisitMut};
+
+struct Parts {}
+
+impl<'ast> VisitMut for Parts {
+    fn visit_expr_mut(&mut self, expr: &mut Expr) {
+        syn::visit_mut::visit_expr_mut(self, expr);
+
+        let expr_clone = expr.clone();
+        *expr = syn::Expr::Block(syn::ExprBlock{
+            attrs: vec![],
+            label: None,
+            block: syn::Block{
+                brace_token: syn::token::Brace::default(),
+                stmts: vec![syn::Stmt::Expr(expr_clone)],
+            },
+        });
+    }
+}
+
+#[proc_macro_attribute]
+pub fn bug(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let _ = args;
+    let mut input = parse_macro_input!(input as Item);
+
+    let mut parts = Parts{};
+    parts.visit_item_mut(&mut input);
+    
+    let tokens = input.into_token_stream();
+    tokens.into()
+}
+----
+
 == Steps to reproduce
 
 [source,bash]
@@ -29,33 +68,8 @@ which produces a surprise `(/\*ERROR*/)` where there should be a `{ b }` sub-exp
 [source,rust]
 ----
 ...
-#![feature(prelude_import)]
-#[prelude_import]
-use std::prelude::rust_2021::*;
-#[macro_use]
-extern crate std;
-// Check that the simplest use of the #[bug] attribute proc-macro compiles.
-use rust_macro_bug_impl::bug;
-
 fn add(a: u64, b: u64) -> u64 { { { a } (/*ERROR*/) } } // <1>
-
-#[allow(dead_code)]
-pub fn main() {
-    match (&add(1, 2), &3) {
-        (left_val, right_val) => {
-            if !(*left_val == *right_val) {
-                    let kind = ::core::panicking::AssertKind::Eq;
-                    ::core::panicking::assert_failed(kind, &*left_val,
-                        &*right_val, ::core::option::Option::None);
-                }
-        }
-    };
-}
-#[rustc_main]
-pub fn main() -> () {
-    extern crate test;
-    test::test_main_static(&[])
-}
+...
 ----
 
 <1> What is printing `(/\*ERROR*/)` here? -- This should be `{ b }` -- why isn't it?
