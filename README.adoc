@@ -24,7 +24,7 @@ The bug is visible at expansion-time by running:
 cargo expand --ugly --test 01-bug
 ----
 
-which produces (see callout <<1>> ):
+which produces a surprise `(/\*ERROR*/)` where there should be a `{ b }` sub-expression, see callout (1) below:
 
 [source,rust]
 ----
@@ -62,4 +62,10 @@ pub fn main() -> () {
 
 
 == Expected Behavior
+
+`cargo test` should succeed, and `cargo expand --ugly --test 01-bug 2>/dev/null | grep 'fn add'` should produce
+
+----
+fn add(a: u64, b: u64) -> u64 { { { a } { b } } }
+----
 
